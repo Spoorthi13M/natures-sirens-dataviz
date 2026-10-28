@@ -26,5 +26,4 @@ An interactive web report and data storytelling project developed for **RMIT Uni
 
 ## 🚀 View the Live Report
 You can view the fully interactive HTML web report right in your browser via GitHub Pages:
-👉 [Click here to view the live report!](file:///C:/Users/Sam/OneDrive%20-%20RMIT%20University/Documents/Nature's%20Serines.html)
-*(Note: Replace `YOUR-GITHUB-USERNAME` with your actual GitHub username).*
+👉 [Click here to view the live report!](https://rpubs.com/Spoorthi/1471388)
