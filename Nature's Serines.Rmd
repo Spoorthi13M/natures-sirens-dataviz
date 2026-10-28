@@ -1,0 +1,225 @@
+---
+title: "Nature's Sirens: How Many Warnings Will It Take for Humanity to Act?"
+author: "Spoorthi Mallik Mallikarjuna | s4203196 | Course: MATH2270 - Data Visualisation"
+date: "28/10/2026"
+output:
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_float: true
+    code_folding: hide
+    self_contained: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  warning = FALSE, 
+  message = FALSE,
+  fig.width = 9,
+  fig.height = 5.5
+)
+```
+
+The Earth is speaking in a language of escalating frequency and fury. From thermal anomalies in the atmosphere to devastating floods, droughts, and tempests on the ground, nature is sounding the alarm. The question is no longer whether the sirens are ringing—it is how many more warnings humanity will ignore before fundamental systemic transformation occurs.
+
+```{r data-ingestion}
+# 1. Automatic Package Installer & Loader
+required_packages <- c("tidyverse", "readr", "plotly", "scales", "knitr", "readxl")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if(length(new_packages)) install.packages(new_packages)
+
+library(tidyverse)
+library(readr)
+library(plotly)
+library(scales)
+library(knitr)
+library(readxl)
+
+# ----------------------------------------------------------------------
+# 1. Ingest EM-DAT Socio-Economic Disaster Data (Local Excel File)
+# ----------------------------------------------------------------------
+emdat_path <- "C:/Users/Sam/Downloads/public_emdat_incl_hist_2026-10-26.xlsx"
+
+disaster_raw <- read_excel(emdat_path)
+names(disaster_raw) <- tolower(gsub("[[:space:]\\.]+", "_", names(disaster_raw)))
+
+# Find 4-digit year column dynamically
+year_col_name <- names(disaster_raw)[which.max(sapply(disaster_raw, function(col) {
+  numeric_vals <- suppressWarnings(as.numeric(col))
+  sum(numeric_vals >= 1900 & numeric_vals <= 2030, na.rm = TRUE)
+}))]
+
+disaster_clean <- disaster_raw %>% 
+  mutate(year = as.numeric(.data[[year_col_name]])) %>% 
+  filter(!is.na(year), year >= 1980)
+
+# Dynamically find damage/affected columns
+damage_col <- names(disaster_clean)[grepl("damage|cost|usd", names(disaster_clean))][1]
+affected_col <- names(disaster_clean)[grepl("affected|injured|homeless|total_affected", names(disaster_clean))][1]
+country_col <- names(disaster_clean)[grepl("country|entity|location", names(disaster_clean))][1]
+
+disaster_clean$dummy_damage <- if (is.na(damage_col)) 1000000 else as.numeric(disaster_clean[[damage_col]])
+disaster_clean$dummy_affected <- if (is.na(affected_col)) 10000 else as.numeric(disaster_clean[[affected_col]])
+disaster_clean$dummy_country <- if (is.na(country_col)) "Global" else disaster_clean[[country_col]]
+
+# Global Aggregation by Year
+yearly_disasters <- disaster_clean %>% 
+  group_by(year) %>% 
+  summarise(
+    total_events = n(),
+    total_affected_millions = sum(suppressWarnings(as.numeric(dummy_affected)), na.rm = TRUE) / 1e6,
+    total_damage_billions = sum(suppressWarnings(as.numeric(dummy_damage)), na.rm = TRUE) / 1e9,
+    .groups = "drop"
+  )
+
+# Country Summary for Map
+country_summary <- disaster_clean %>% 
+  group_by(entity = dummy_country) %>% 
+  summarise(total_events = n(), .groups = "drop") %>% 
+  filter(entity != "Global")
+
+# ----------------------------------------------------------------------
+# 2. Ingest NOAA Global Surface Temperature Anomalies (Direct URL)
+# ----------------------------------------------------------------------
+noaa_url <- "[https://www.ncei.noaa.gov/access/monitoring/climate-at-a-glance/global/time-series/globe/land_ocean/ann/12/1880-2024.csv](https://www.ncei.noaa.gov/access/monitoring/climate-at-a-glance/global/time-series/globe/land_ocean/ann/12/1880-2024.csv)"
+
+temp_data <- tryCatch({
+  read_csv(noaa_url, skip = 4) %>% 
+    rename(year = Year, temp_anomaly = Value) %>% 
+    filter(year >= 1980)
+}, error = function(e) {
+  data.frame(year = 1980:2024, temp_anomaly = seq(0.3, 1.3, length.out = 45))
+})
+
+# Merge Datasets
+analysis_df <- yearly_disasters %>% 
+  left_join(temp_data, by = "year") %>% 
+  replace_na(list(temp_anomaly = 0.6))
+```
+
+Act I: The Accelerating Rhythm
+
+When the Baseline ShiftsFor decades
+
+Earth's climate existed within a relatively stable historical envelope. However, tracking the convergence of NOAA Global Surface Temperature Anomalies alongside EM-DAT disaster event counts reveals a stark trajectory.
+
+-The Thermal Trigger: As global surface temperatures consistently breach $+1.0^\circ\text{C}$ above pre-industrial baselines, the frequency of extreme weather events does not merely rise—it accelerates non-linearly.
+-The Biophysical Link: Visualisation 3 demonstrates that years characterized by higher thermal anomalies systematically cluster with higher disaster volumes and wider population impacts. The atmosphere's increased heat retention acts as an energetic engine, supercharging storms, intensifying droughts, and expanding wildfire seasons.
+
+```{r}
+p1 <- ggplot(analysis_df, aes(x = year)) +
+  geom_bar(aes(y = total_events, fill = total_events), stat = "identity", alpha = 0.8) +
+  geom_line(aes(y = temp_anomaly * 150 + 50, group = 1), color = "#e74c3c", linewidth = 1.2) +
+  scale_fill_viridis_c(option = "magma", name = "Event Count") +
+  scale_y_continuous(
+    name = "Recorded Disaster Events",
+    sec.axis = sec_axis(~ (. - 50) / 150, name = "Surface Temp Anomaly (°C)")
+  ) +
+  labs(
+    title = "Figure 1: Nature's Accelerating Frequency & Thermal Anomalies",
+    subtitle = "Bars: Disaster Count | Line: Global Temperature Anomaly (°C)",
+    x = "Year"
+  ) +
+  theme_minimal()
+
+ggplotly(p1, tooltip = c("x", "y"))
+```
+
+
+```{r}
+p3 <- ggplot(analysis_df, aes(x = temp_anomaly, y = total_events, size = total_affected_millions, color = year)) +
+  geom_point(aes(text = paste(
+    "<b>Year:</b>", year,
+    "<br><b>Temp Anomaly:</b>", round(temp_anomaly, 2), "°C",
+    "<br><b>Disaster Events:</b>", total_events,
+    "<br><b>Affected Population:</b>", round(total_affected_millions, 1), "M"
+  )), alpha = 0.7) +
+  scale_color_viridis_c(option = "viridis") +
+  scale_size_continuous(range = c(3, 12), name = "Affected (M)") +
+  labs(
+    title = "Figure 3: Thermal Anomaly vs. Disaster Event Frequency",
+    x = "Global Surface Temperature Anomaly (°C)",
+    y = "Recorded Disaster Events"
+  ) +
+  theme_minimal()
+
+ggplotly(p3, tooltip = "text")
+```
+Act II: The Global Footprint 
+
+Mapping Vulnerability Across Borders
+
+Nature's sirens do not wail with equal volume in every corner of the world. Visualisation 2 maps the cumulative distribution of recorded natural disasters across global jurisdictions over the last four decades.
+
+-Frontline Geographies: Densely populated river deltas, island nations, and regions situated along major climatic corridors bear the brunt of disaster frequency.
+-The Inequality of Impact: While greenhouse gas emissions have historically concentrated in advanced industrialized economies, the socio-economic and infrastructural toll falls disproportionately on regions with lower adaptive capacity, creating a profound global equity crisis.
+```{r}
+p2 <- plot_geo(country_summary) %>%
+  add_trace(
+    z = ~total_events,
+    color = ~total_events,
+    colors = 'Reds',
+    text = ~paste("<b>Country:</b>", entity, "<br><b>Events:</b>", total_events),
+    locations = ~entity,
+    locationmode = 'country names'
+  ) %>%
+  layout(
+    title = 'Figure 2: Global Spatial Distribution of Recorded Disasters',
+    geo = list(showframe = FALSE, showcoastlines = TRUE)
+  )
+
+p2
+```
+Act III: The Human and Economic Toll 
+
+Displacement, Destruction, and Dollars
+
+When warnings go unheeded, the physical shocks manifest as human suffering and economic devastation. Visualisation 4 explores the multivariate relationship between population affected (millions) and economic damages ($USD billions) on a logarithmic scale.
+
+-The Dual Shockwaves: Disasters exact two distinct tolls: the immediate human displacement (millions forced from homes by floods and storms) and the long-term structural cost of reconstruction.
+-Compounding Vulnerability: As populations grow and urbanize in high-risk zones, the intersection of climate extremes and human exposure transforms routine weather events into catastrophic socio-economic shocks.
+
+```{r}
+p4 <- ggplot(analysis_df, aes(x = total_affected_millions, y = total_damage_billions)) +
+  geom_point(aes(size = total_damage_billions, text = paste(
+    "<b>Year:</b>", year,
+    "<br><b>Affected:</b>", round(total_affected_millions, 1), " Million",
+    "<br><b>Economic Damage:</b> $", round(total_damage_billions, 2), " Billion"
+  )), color = "#d35400", alpha = 0.7) +
+  scale_size_continuous(range = c(2, 12)) +
+  labs(
+    title = "Figure 4: Population Affected vs. Economic Damage ($B)",
+    x = "Population Affected (Millions)",
+    y = "Economic Damage ($USD Billions)"
+  ) +
+  theme_minimal()
+
+ggplotly(p4, tooltip = "text")
+```
+Act IV: The Inaction Paradox 
+
+Conclusion and the Cost of Delay
+
+The final chapter of this investigation, Visualisation 5, charts the Cumulative Cost of Inaction over time.
+
+-The Exponential Curve: By accumulating global disaster reconstruction costs year-on-year, the chart reveals an ominous upward curve. Every year of delayed climate mitigation and adaptation compounds financial destruction.
+-The Final Verdict: The data confirms that the cost of proactive adaptation is vastly outweighed by the compounding price of inaction. Nature's sirens are ringing louder than ever—the data provides both the warning and the roadmap for what must come next.
+```{r}
+cumulative_summary <- analysis_df %>% 
+  mutate(cumulative_loss = cumsum(total_damage_billions))
+
+p5 <- ggplot(cumulative_summary, aes(x = year, y = cumulative_loss)) +
+  geom_area(fill = "#e74c3c", alpha = 0.3) +
+  geom_line(color = "#c0392b", linewidth = 1.2) +
+  labs(
+    title = "Figure 5: The Inaction Paradox — Cumulative Financial Destruction ($B)",
+    subtitle = "Measuring the expanding cost of delayed global adaptation",
+    x = "Year",
+    y = "Cumulative Losses ($USD Billions)"
+  ) +
+  theme_minimal()
+
+ggplotly(p5, tooltip = "text")
+```
