@@ -23,8 +23,6 @@ An interactive web report and data storytelling project developed for **RMIT Uni
 - **Output Format:** Standalone interactive HTML report (`flatly` theme, code-folding enabled)
 
 ---
-
 ## 🚀 View the Live Report
 You can view the fully interactive HTML web report right in your browser via GitHub Pages:
 👉 [Click here to view the live report!](file:///C:/Users/Sam/OneDrive%20-%20RMIT%20University/Documents/Nature's%20Serines.html)
-.*# natures-sirens-dataviz An interactive RMarkdown data story correlating NOAA climate anomalies with global EM-DAT disaster impacts.
