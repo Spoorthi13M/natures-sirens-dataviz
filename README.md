@@ -25,5 +25,5 @@ An interactive web report and data storytelling project developed for **RMIT Uni
 ---
 
 ## 🚀 View the Live Report
-You can view the fully interactive HTML web report right in your browser via GitHub Pages:
+You can view the fully interactive HTML web report published on RPubs right in your browser via GitHub Pages:
 👉 [Click here to view the live report!](https://rpubs.com/Spoorthi/1471388)
